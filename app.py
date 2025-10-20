@@ -60,3 +60,49 @@ if uploaded_file:
 
                     # เพิ่มแถวสรุป
                     summary = pd.DataFrame({
+                        "ลำดับ": ["รวมเป็นเงิน"],
+                        student_col: [total_students],
+                        money_col: [total_money]
+                    })
+                    for col in group.columns:
+                        if col not in summary.columns:
+                            summary[col] = ""
+
+                    summary = summary[group.columns]
+                    final_df = pd.concat([group, summary], ignore_index=True)
+
+                    # เขียนลงชีต
+                    safe_name = str(teacher).strip()[:31].replace('/', '-')
+                    final_df.to_excel(writer, sheet_name=safe_name, index=False)
+
+            # โหลด workbook เพื่อ merge cell + style
+            output.seek(0)
+            wb = load_workbook(output)
+
+            for ws in wb.worksheets:
+                last_row = ws.max_row
+                last_col = ws.max_column
+
+                # ค้นหาคอลัมน์ “จำนวนนิสิต”
+                headers = [cell.value for cell in ws[1]]
+                student_col_idx = headers.index("จำนวนนิสิต") + 1 if "จำนวนนิสิต" in headers else 6
+
+                # ✅ Merge cell แถวสุดท้าย จาก col 1 ถึง ก่อน col จำนวนนิสิต
+                ws.merge_cells(start_row=last_row, start_column=1, end_row=last_row, end_column=student_col_idx - 1)
+                ws.cell(row=last_row, column=1).alignment = Alignment(horizontal="center", vertical="center")
+
+                # ตั้งค่า font ให้แถวสุดท้ายเป็น bold
+                for col in range(1, last_col + 1):
+                    cell = ws.cell(row=last_row, column=col)
+                    cell.font = Font(bold=True)
+
+            new_output = BytesIO()
+            wb.save(new_output)
+            new_output.seek(0)
+
+            st.download_button(
+                label="📥 ดาวน์โหลดไฟล์ที่แยกแล้ว (พร้อมรวมเซลล์)",
+                data=new_output,
+                file_name="แยกตามอาจารย์_พร้อมสรุป_merge.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
