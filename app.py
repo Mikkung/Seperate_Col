@@ -36,7 +36,7 @@ if uploaded_file:
 
                     # หาคอลัมน์จำนวนนิสิตและจำนวนเงิน (โดยค้นจากชื่อ)
                     student_col = next((c for c in df.columns if "จำนวนนิสิต" in str(c)), None)
-                    money_col = next((c for c in df.columns if "จำนวนเงิน" in str(c)), None)
+                    money_col = next((c for c in df.columns if "คิดเป็นเงิน" in str(c)), None)
 
                     # คำนวณผลรวม
                     total_students = group[student_col].sum() if student_col else ""
@@ -72,4 +72,5 @@ if uploaded_file:
                 file_name="แยกตามอาจารย์_พร้อมสรุป.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
 
