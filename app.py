@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 from openpyxl import load_workbook
-from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment
 
 st.set_page_config(page_title="แยกชีตตามอาจารย์ผู้สอน", page_icon="📘")
@@ -13,6 +12,12 @@ uploaded_file = st.file_uploader("📤 อัปโหลดไฟล์ Excel (
 
 if uploaded_file:
     df = pd.read_excel(uploaded_file)
+
+    # ✅ ถ้า column แรกไม่มีชื่อ -> ตั้งชื่อให้ว่า "ลำดับ"
+    if not str(df.columns[0]).strip() or "unnamed" in str(df.columns[0]).lower():
+        df.columns = ["ลำดับ"] + list(df.columns[1:])
+    else:
+        df.rename(columns={df.columns[0]: "ลำดับ"}, inplace=True)
 
     # หาชื่อคอลัมน์ "อาจารย์ผู้สอน"
     teacher_col = next((c for c in df.columns if "อาจารย์" in str(c)), None)
@@ -32,9 +37,11 @@ if uploaded_file:
                     # 🧹 ตัดคอลัมน์สุดท้ายออก
                     group = group.iloc[:, :-1]
 
+                    # ✅ ตั้งชื่อคอลัมน์แรกให้แน่ใจว่าเป็น "ลำดับ"
+                    group.rename(columns={group.columns[0]: "ลำดับ"}, inplace=True)
+
                     # รีเซ็ตลำดับใหม่
-                    first_col = df.columns[0]
-                    group[first_col] = range(1, len(group) + 1)
+                    group["ลำดับ"] = range(1, len(group) + 1)
 
                     # หาคอลัมน์จำนวนนิสิตและจำนวนเงิน
                     student_col = next((c for c in group.columns if "นิสิต" in str(c)), None)
@@ -53,47 +60,3 @@ if uploaded_file:
 
                     # เพิ่มแถวสรุป
                     summary = pd.DataFrame({
-                        first_col: ["รวมเป็นเงิน"],
-                        student_col: [total_students],
-                        money_col: [total_money]
-                    })
-                    for col in group.columns:
-                        if col not in summary.columns:
-                            summary[col] = ""
-
-                    summary = summary[group.columns]
-                    final_df = pd.concat([group, summary], ignore_index=True)
-
-                    # เขียนลงชีต
-                    safe_name = str(teacher).strip()[:31].replace('/', '-')
-                    final_df.to_excel(writer, sheet_name=safe_name, index=False)
-
-            # โหลด workbook เพื่อแก้ไข style (merge cell, bold)
-            output.seek(0)
-            wb = load_workbook(output)
-
-            for ws in wb.worksheets:
-                last_row = ws.max_row
-                last_col = ws.max_column
-
-                # Merge cell "รวมเป็นเงิน" (รวมจากคอลัมน์ 1 ถึง คอลัมน์ก่อน student_col)
-                merge_end_col = list(group.columns).index(student_col)
-                ws.merge_cells(start_row=last_row, start_column=1, end_row=last_row, end_column=merge_end_col)
-                ws.cell(row=last_row, column=1).alignment = Alignment(horizontal="center", vertical="center")
-
-                # ตั้งค่า font ให้แถวสุดท้ายเป็น bold
-                for col in range(1, last_col + 1):
-                    cell = ws.cell(row=last_row, column=col)
-                    cell.font = Font(bold=True)
-
-            # เขียนกลับลง memory
-            new_output = BytesIO()
-            wb.save(new_output)
-            new_output.seek(0)
-
-            st.download_button(
-                label="📥 ดาวน์โหลดไฟล์ที่แยกแล้ว (พร้อมรวมเซลล์)",
-                data=new_output,
-                file_name="แยกตามอาจารย์_พร้อมสรุป_merge.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
